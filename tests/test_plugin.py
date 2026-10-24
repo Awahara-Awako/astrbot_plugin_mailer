@@ -456,3 +456,73 @@ def test_tool_description_encourages_html_email(tmp_path: Path, MailerPlugin) ->
         "优先使用 html_body"
         in tool.parameters["properties"]["html_body"]["description"]
     )
+
+
+def _detail(subject: str, body: str, sender: str = "boss@example.com"):
+    return SimpleNamespace(
+        subject=subject, text_body=body, from_addr=sender, from_name=sender
+    )
+
+
+def _instruction_plugin(mailer_plugin_cls, tmp_path: Path, **instruction):
+    cfg = {"enabled": True, "subject_prefix": "[task]"}
+    cfg.update(instruction)
+    return build_plugin(
+        mailer_plugin_cls,
+        tmp_path,
+        accounts=[
+            {
+                "__template_key": "account",
+                "label": "bot",
+                "email": "bot@example.com",
+                "password": "secret",
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 587,
+                "imap_host": "imap.example.com",
+                "notify_session": "default:FriendMessage:1",
+                "auto_reply_whitelist": ["boss@example.com"],
+            }
+        ],
+        instruction=cfg,
+    )
+
+
+def test_instruction_mail_requires_prefix(tmp_path: Path, MailerPlugin) -> None:
+    plugin = _instruction_plugin(MailerPlugin, tmp_path)
+    account = plugin._account()
+
+    assert plugin._is_instruction_mail(
+        account, _detail("[task] 重启 frps", "正文")
+    ) is True
+    assert plugin._is_instruction_mail(
+        account, _detail("随便聊聊", "[task] 顺便重启一下")
+    ) is True
+    assert plugin._is_instruction_mail(
+        account, _detail("重启 frps", "正文")
+    ) is False
+
+
+def test_instruction_mail_respects_switch_and_whitelist(
+    tmp_path: Path, MailerPlugin
+) -> None:
+    disabled = _instruction_plugin(MailerPlugin, tmp_path, enabled=False)
+    assert disabled._is_instruction_mail(
+        disabled._account(), _detail("[task] 重启", "正文")
+    ) is False
+
+    plugin = _instruction_plugin(MailerPlugin, tmp_path)
+    assert plugin._is_instruction_mail(
+        plugin._account(),
+        _detail("[task] 重启", "正文", sender="stranger@example.com"),
+    ) is False
+    assert plugin._is_instruction_mail(
+        plugin._account(),
+        _detail("[task] 重启", "正文", sender="bot@example.com"),
+    ) is False
+
+
+def test_instruction_prefix_can_be_empty(tmp_path: Path, MailerPlugin) -> None:
+    plugin = _instruction_plugin(MailerPlugin, tmp_path, subject_prefix="")
+    assert plugin._is_instruction_mail(
+        plugin._account(), _detail("任意主题", "正文")
+    ) is True

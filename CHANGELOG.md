@@ -22,6 +22,7 @@
 - 新增命令 `/mail_accounts`、`/mail_check`、`/mail_read`
 - 新增 `receive` 配置组：正文读取上限、忽略的发件人关键字
 - 新增 `tests/test_accounts.py`，覆盖账号解析、默认账号选取与状态存储
+- 新增 `instruction` 设置组：`enabled` 开关 + `subject_prefix` 暗号前缀，判断只走规则不交给模型
 - 新增邮件指令的审批流程：白名单来信只生成操作方案并推到聊天等批准，绝不直接执行（收信侧不回信，执行完成后才同步结果）
 - 新增 `mailer/plans.py`：待审批计划队列，含编号、摘要哈希、有效期、一次性执行
 - 新增命令 `/mail_plans`、`/批准`（`/mail_approve`）、`/驳回`（`/mail_reject`）

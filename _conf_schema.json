@@ -39,7 +39,10 @@
             "type": "string",
             "description": "收信模式",
             "hint": "manual：被提醒时才查。idle：常驻 IDLE 连接，服务端推送到就处理，断线自动重连。",
-            "options": ["manual", "idle"],
+            "options": [
+              "manual",
+              "idle"
+            ],
             "default": "manual"
           },
           "auto_reply_enabled": {
@@ -112,7 +115,32 @@
         "type": "list",
         "description": "忽略的发件人关键字",
         "hint": "发件人地址包含这些关键字时不自动回复（仍会通知），用于挡 noreply、DMARC 报告这类自动信。",
-        "default": ["no-reply", "noreply", "mailer-daemon", "postmaster", "dmarcreport"]
+        "default": [
+          "no-reply",
+          "noreply",
+          "mailer-daemon",
+          "postmaster",
+          "dmarcreport"
+        ]
+      }
+    }
+  },
+  "instruction": {
+    "type": "object",
+    "description": "通过邮件操作电脑",
+    "hint": "控制邮件能不能触发实际操作。关闭后所有来信只通知、不生成操作方案；打开后也只有白名单发件人且主题（或正文首行）带暗号前缀的来信才会生成方案，方案仍需在聊天里人工批准才会执行。",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "允许通过邮件操作电脑",
+        "hint": "总开关。关闭后来信一律只通知、不生成方案。",
+        "default": true
+      },
+      "subject_prefix": {
+        "type": "string",
+        "description": "主题暗号前缀",
+        "hint": "只有主题或正文首行以它开头的来信才当作操作请求，例如 [task]。留空表示不要求前缀（不建议）。",
+        "default": "[task]"
       }
     }
   },

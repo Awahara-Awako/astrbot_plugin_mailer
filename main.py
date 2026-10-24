@@ -189,6 +189,9 @@ class MailerPlugin(Star):
     def _receive_config(self) -> dict[str, Any]:
         return self._group("receive")
 
+    def _instruction_config(self) -> dict[str, Any]:
+        return self._group("instruction")
+
     def _accounts(self) -> list[AccountConfig]:
         return [acc for acc in parse_accounts(dict(self.config)) if acc.enabled]
 
@@ -818,8 +821,25 @@ class MailerPlugin(Star):
     def _instruction_whitelist(self, account: AccountConfig) -> set[str]:
         return set(account.auto_reply_whitelist)
 
+    def _instruction_prefix(self) -> str:
+        return str(self._instruction_config().get("subject_prefix", "") or "").strip()
+
+    def _has_instruction_prefix(self, detail: MailDetail) -> bool:
+        prefix = self._instruction_prefix()
+        if not prefix:
+            return True
+        lowered = prefix.lower()
+        if (detail.subject or "").strip().lower().startswith(lowered):
+            return True
+        first_line = (detail.text_body or "").strip().splitlines()
+        if first_line and first_line[0].strip().lower().startswith(lowered):
+            return True
+        return False
+
     def _is_instruction_mail(self, account: AccountConfig, detail: MailDetail) -> bool:
-        """只有白名单来信才当操作请求，其它来信一律不触发任何动作。"""
+        """只有「开关打开 + 白名单来信 + 带暗号前缀」才当操作请求，其它一律不触发动作。"""
+        if not self._get_bool("instruction", "enabled", True):
+            return False
         allowed = self._instruction_whitelist(account)
         if not allowed:
             return False
@@ -832,7 +852,9 @@ class MailerPlugin(Star):
             if pattern and pattern in from_addr:
                 return False
         domain = from_addr.rsplit("@", 1)[-1]
-        return from_addr in allowed or domain in allowed
+        if from_addr not in allowed and domain not in allowed:
+            return False
+        return self._has_instruction_prefix(detail)
 
     async def _generate_plan(
         self, account: AccountConfig, detail: MailDetail

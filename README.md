@@ -92,12 +92,22 @@ IMAP 收信使用标准库 `imaplib` / `email`，不需要额外依赖。
 - `max_body_chars`：单封邮件正文读取上限，超出截断
 - `ignore_sender_patterns`：发件人地址命中的关键字，命中后不自动回复（仍会通知）
 
-### 3. `tool` 工具控制
+### 3. `instruction` 通过邮件操作电脑
+
+这是一个独立开关组，控制邮件到底能不能触发实际操作：
+
+- `enabled`：总开关，关掉后来信一律只通知、不生成方案
+- `subject_prefix`：暗号前缀，默认 `[task]`。只有**白名单发件人**、且**主题或正文首行**以它开头的来信才会生成操作方案；留空表示不要求前缀（不建议）
+
+判断完全靠规则，不交给模型猜：开关 + 白名单 + 前缀三者都满足才进方案流程。方案生成后推到聊天里，由你自己在审批层决定批还是驳——这一层才是真正的把关。
+
+### 4. `tool` 工具控制
+
 
 - `enable_llm_tool`：是否向 LLM 暴露邮件相关工具
 - `require_tool_confirmation`：【开发中】开启后，LLM 直接调用工具会被拒绝，待后续开发接入人工审核或确认流程。
 
-### 4. `security` 安全控制
+### 5. `security` 安全控制
 
 - `allowed_sender_ids`：允许调用邮件功能的 AstrBot 用户 ID 列表，空表示不限制
 - `allowed_domains`：允许发送的收件人域名白名单，空表示不限制
@@ -259,6 +269,7 @@ data/plugin_data/astrbot_plugin_mailer/attachments/report.pdf
 `check_mode=idle` 的账号收到**白名单发件人**（`auto_reply_whitelist`，为空则不启用）的来信时，
 不会直接动手，而是走一条"先出方案、再等批准"的链路：
 
+0. 前置条件是 `instruction.enabled` 打开、发件人在白名单里、主题或正文首行带 `subject_prefix` 暗号
 1. 插件用 LLM 生成一份操作方案（只输出方案，明确禁止声称已执行）
 2. 把方案推到 `notify_session` 指定的聊天会话里，附带编号 `#xxxxxx`
 3. 你在聊天里回复 `批准 xxxxxx` 才会真正执行；回复 `驳回 xxxxxx` 则作废

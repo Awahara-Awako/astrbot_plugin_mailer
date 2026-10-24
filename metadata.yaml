@@ -1,6 +1,6 @@
 name: astrbot_plugin_mailer
 display_name: 学会发邮件
 author: Fold
-description: 为Agent提供一个受控的 SMTP 电子邮件发送工具，支持 HTML 格式、内嵌图片以及附件功能。
-version: 0.1.1
+description: 为 Agent 提供受控的邮件收发能力：多邮箱账号（一个邮箱一个密码，自动推断 TLS）、SMTP 发信（HTML/内嵌图片/附件）、IMAP 收信，每个账号可选「被提醒才查」或「IDLE 推送即时处理」。
+version: 0.2.0
 repo: https://github.com/FFFold/astrbot_plugin_mailer

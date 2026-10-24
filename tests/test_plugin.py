@@ -24,6 +24,18 @@ def _install_astrbot_stubs() -> dict[str, ModuleType | None]:
     api_module = ModuleType("astrbot.api")
     event_module = ModuleType("astrbot.api.event")
     star_module = ModuleType("astrbot.api.star")
+    components_module = ModuleType("astrbot.api.message_components")
+
+    class _MessageChain:
+        def __init__(self, components=None) -> None:
+            self.components = list(components or [])
+
+    class _Plain:
+        def __init__(self, text: str = "") -> None:
+            self.text = text
+
+    components_module.Plain = _Plain
+    event_module.MessageChain = _MessageChain
 
     class _Logger:
         def info(self, *_args, **_kwargs) -> None:
@@ -78,6 +90,7 @@ def _install_astrbot_stubs() -> dict[str, ModuleType | None]:
     sys.modules["astrbot.api"] = api_module
     sys.modules["astrbot.api.event"] = event_module
     sys.modules["astrbot.api.star"] = star_module
+    sys.modules["astrbot.api.message_components"] = components_module
     return originals
 
 
@@ -136,19 +149,21 @@ def run_async(awaitable):
 
 def build_plugin(mailer_plugin_cls, tmp_path: Path, **overrides):
     config = {
-        "smtp": {
-            "host": "smtp.example.com",
-            "port": 465,
-            "timeout_seconds": 30,
-            "use_tls": True,
-            "use_starttls": False,
-            "username": "bot@example.com",
-            "password": "secret",
-            "from_name": "AstrBot Mailer",
-            "from_email": "bot@example.com",
-            "default_reply_to": "",
-            "subject_prefix": "",
-        },
+        "accounts": [
+            {
+                "__template_key": "account",
+                "label": "bot",
+                "email": "bot@example.com",
+                "password": "secret",
+                "is_default": True,
+                "check_mode": "manual",
+                "from_name": "AstrBot Mailer",
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 465,
+                "imap_host": "imap.example.com",
+                "imap_port": 993,
+            }
+        ],
         "tool": {
             "enable_llm_tool": True,
             "require_tool_confirmation": False,
@@ -282,42 +297,60 @@ def test_sender_allowlist_accepts_numeric_ids(tmp_path: Path, MailerPlugin) -> N
     plugin._check_sender_allowed(event)
 
 
-def test_smtp_settings_reject_tls_and_starttls_together(
-    tmp_path: Path, MailerPlugin
-) -> None:
+def test_smtp_settings_infer_tls_from_port(tmp_path: Path, MailerPlugin) -> None:
+    plugin = build_plugin(MailerPlugin, tmp_path)
+    settings = plugin._smtp_settings()
+    assert settings.host == "smtp.example.com"
+    assert settings.port == 465
+    assert settings.use_tls is True
+    assert settings.use_starttls is False
+
     plugin = build_plugin(
         MailerPlugin,
         tmp_path,
-        smtp={
-            "use_tls": True,
-            "use_starttls": True,
-        },
+        accounts=[
+            {
+                "__template_key": "account",
+                "label": "bot",
+                "email": "bot@example.com",
+                "password": "secret",
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 587,
+            }
+        ],
     )
-
-    with pytest.raises(ValueError, match="不能同时开启"):
-        plugin._smtp_settings()
+    settings = plugin._smtp_settings()
+    assert settings.use_tls is False
+    assert settings.use_starttls is True
 
 
 def test_smtp_settings_reject_invalid_port(tmp_path: Path, MailerPlugin) -> None:
-    plugin = build_plugin(MailerPlugin, tmp_path, smtp={"port": 70000})
+    plugin = build_plugin(
+        MailerPlugin,
+        tmp_path,
+        accounts=[
+            {
+                "__template_key": "account",
+                "label": "bot",
+                "email": "bot@example.com",
+                "smtp_host": "smtp.example.com",
+                "smtp_port": 70000,
+            }
+        ],
+    )
 
     with pytest.raises(ValueError, match="1 到 65535"):
         plugin._smtp_settings()
 
 
-def test_smtp_settings_parse_string_bool_values(tmp_path: Path, MailerPlugin) -> None:
+def test_bool_config_parses_string_values(tmp_path: Path, MailerPlugin) -> None:
     plugin = build_plugin(
         MailerPlugin,
         tmp_path,
-        smtp={"use_tls": "false", "use_starttls": "true"},
         tool={"enable_llm_tool": "true", "require_tool_confirmation": "false"},
         security={"allow_unsafe_all_attachment_paths": "false"},
     )
 
-    settings = plugin._smtp_settings()
-
-    assert settings.use_tls is False
-    assert settings.use_starttls is True
     assert plugin._get_bool("tool", "enable_llm_tool", True) is True
     assert plugin._get_bool("tool", "require_tool_confirmation", True) is False
     assert (

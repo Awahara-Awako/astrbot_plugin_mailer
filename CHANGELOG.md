@@ -2,6 +2,49 @@
 
 本项目遵循语义化版本管理。
 
+## 0.2.0 - 2026-10-22
+
+多邮箱账号与收信能力版本：从「只能发信」升级为「可发可收」，配置尽量精简。
+
+### Added
+
+- 新增 `accounts` 配置组（template_list），支持挂载多个邮箱账号
+- 每个账号只需一个 `password`（SMTP 与 IMAP 共用），TLS 按端口自动推断（465 隐式 / 其他 STARTTLS）
+- 新增 `check_mode`：
+  - `manual`：只有被提醒（LLM 工具调用 / `/mail_check` 命令）时才去查收件箱
+  - `idle`：常驻 IMAP 连接挂 IDLE（RFC 2177），服务端推送新邮件通知，近实时且省连接
+- 新增 `mailer/imap_idle.py`：IDLE 监听实现，独立线程 + 29 分钟保活 + 断线指数退避重连
+- 新增 `auto_reply_enabled` / `auto_reply_whitelist`：是否自动回信、只回哪些发件人
+- 新增 `notify_enabled` / `notify_session`：新邮件通知开关与推送目标会话
+- 新增 IMAP 收信模块 `mailer/imap_client.py`（纯标准库实现，无新增第三方依赖）
+- 新增收信状态存储 `mailer/state.py`，记录每个账号处理到的 UID 与已自动回复的 Message-ID
+- 新增工具 `list_emails`（列出收件箱摘要）与 `read_email`（读取指定邮件正文）
+- 新增命令 `/mail_accounts`、`/mail_check`、`/mail_read`
+- 新增 `receive` 配置组：正文读取上限、忽略的发件人关键字
+- 新增 `tests/test_accounts.py`，覆盖账号解析、默认账号选取与状态存储
+- 新增邮件指令的审批流程：白名单来信只生成操作方案并推到聊天等批准，绝不直接执行（收信侧不回信，执行完成后才同步结果）
+- 新增 `mailer/plans.py`：待审批计划队列，含编号、摘要哈希、有效期、一次性执行
+- 新增命令 `/mail_plans`、`/批准`（`/mail_approve`）、`/驳回`（`/mail_reject`）
+- 新增 `tests/test_plans.py`，覆盖计划创建、顶掉旧计划、过期与摘要校验
+
+### Changed
+
+- `send_email` 工具新增可选参数 `account`，用于在多账号场景下指定发信账号
+- `/mail_test` 支持第二个参数指定账号
+- `build_message` 支持传入额外邮件头（用于 `In-Reply-To` / `References` / `Auto-Submitted`）
+
+### Removed
+
+- 移除旧版 `smtp` 单账号配置组及其回退逻辑，账号统一走 `accounts`
+- 移除轮询收信模式（`check_mode=auto`）与 `poll_interval_seconds`，收信只保留「被提醒才查」与「IDLE 推送」
+- 移除 `auto_reply_scope`（改用 `auto_reply_whitelist` 是否为空来表达）、`reply_system_prompt`、
+  `subject_prefix`、`reply_to` 等低频配置项，以及各账号的 timeout / mailbox / imap_username 等冗余字段
+
+### Safety
+
+- 自动回复会跳过：自己发的邮件、命中 `ignore_sender_patterns` 的地址（noreply / DMARC 报告等）、
+  对方的自动回复（`Auto-Submitted`）、以及已经回复过的 Message-ID，避免邮件回环
+
 ## 0.1.1 - 2026-04-06
 
 首个稳定修复版本，聚焦运行时兼容性、配置健壮性、安全边界和测试隔离问题，适合作为插件市场发布版本。

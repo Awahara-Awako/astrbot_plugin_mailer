@@ -75,6 +75,7 @@ def build_message(
     from_name: str,
     subject_prefix: str = "",
     default_reply_to: str = "",
+    extra_headers: dict[str, str] | None = None,
 ) -> EmailMessage:
     message = EmailMessage()
     if from_name:
@@ -94,6 +95,16 @@ def build_message(
     reply_to = request.reply_to or default_reply_to
     if reply_to:
         message["Reply-To"] = reply_to
+
+    if extra_headers:
+        for header_name, header_value in extra_headers.items():
+            if not header_name or not header_value:
+                continue
+            # 邮件头不允许出现换行（折叠过的 References 会带换行），统一压成单行
+            cleaned_name = " ".join(str(header_name).split())
+            cleaned_value = " ".join(str(header_value).split())
+            if cleaned_name and cleaned_value:
+                message[cleaned_name] = cleaned_value
 
     text_body = request.text_body or html_to_text(request.html_body)
     message.set_content(text_body)

@@ -1,92 +1,135 @@
 {
-  "smtp": {
+  "accounts": {
+    "type": "template_list",
+    "description": "邮箱账号列表",
+    "hint": "每个账号一个邮箱地址加一个密码，SMTP 与 IMAP 共用。check_mode 为 manual 表示只有被提醒时才查信，为 idle 表示常驻 IMAP IDLE 由服务端推送新邮件。",
+    "templates": {
+      "account": {
+        "name": "邮箱账号",
+        "items": {
+          "label": {
+            "type": "string",
+            "description": "账号标识",
+            "hint": "工具和命令里用它指定账号，例如 awako。留空则用邮箱地址。",
+            "default": ""
+          },
+          "email": {
+            "type": "string",
+            "description": "邮箱地址",
+            "default": ""
+          },
+          "password": {
+            "type": "string",
+            "description": "密码或授权码",
+            "hint": "SMTP 与 IMAP 共用这一个密码。",
+            "default": ""
+          },
+          "is_default": {
+            "type": "bool",
+            "description": "默认账号",
+            "hint": "不指定账号时用这个发信。",
+            "default": false
+          },
+          "enabled": {
+            "type": "bool",
+            "description": "启用该账号",
+            "default": true
+          },
+          "check_mode": {
+            "type": "string",
+            "description": "收信模式",
+            "hint": "manual：被提醒时才查。idle：常驻 IDLE 连接，服务端推送到就处理，断线自动重连。",
+            "options": ["manual", "idle"],
+            "default": "manual"
+          },
+          "auto_reply_enabled": {
+            "type": "bool",
+            "description": "自动回复",
+            "hint": "开启后收到新邮件会用 LLM 生成回信自动发出；关闭则只提醒不回复。manual 模式下无效（本来就不会主动收信）。",
+            "default": false
+          },
+          "auto_reply_whitelist": {
+            "type": "list",
+            "description": "自动回复白名单",
+            "hint": "留空表示回复所有发件人；填了则只回复列表里的地址或域名。",
+            "default": []
+          },
+          "notify_enabled": {
+            "type": "bool",
+            "description": "新邮件通知",
+            "hint": "收到新邮件时是否主动推送消息给你。",
+            "default": true
+          },
+          "notify_session": {
+            "type": "string",
+            "description": "通知会话",
+            "hint": "格式 平台:消息类型:会话ID，例如 default:FriendMessage:1582018374。留空则不推送。",
+            "default": ""
+          },
+          "from_name": {
+            "type": "string",
+            "description": "发件人显示名",
+            "default": "AstrBot Mailer"
+          },
+          "smtp_host": {
+            "type": "string",
+            "description": "SMTP 服务器",
+            "default": ""
+          },
+          "smtp_port": {
+            "type": "int",
+            "description": "SMTP 端口",
+            "hint": "465 自动走隐式 TLS，其它端口自动走 STARTTLS（常用的 587 就是这种）。",
+            "default": 587
+          },
+          "imap_host": {
+            "type": "string",
+            "description": "IMAP 服务器",
+            "hint": "留空则该账号只能发信。",
+            "default": ""
+          },
+          "imap_port": {
+            "type": "int",
+            "description": "IMAP 端口",
+            "hint": "993 走 SSL，其它端口按明文连接。",
+            "default": 993
+          }
+        }
+      }
+    }
+  },
+  "receive": {
     "type": "object",
-    "description": "SMTP 发信设置",
-    "hint": "配置邮件服务器连接参数、发件人身份和默认邮件头。",
+    "description": "收信设置",
     "items": {
-      "host": {
-        "type": "string",
-        "description": "SMTP 服务器地址",
-        "hint": "例如 smtp.qq.com、smtp.gmail.com。",
-        "default": ""
-      },
-      "port": {
+      "max_body_chars": {
         "type": "int",
-        "description": "SMTP 服务器端口",
-        "hint": "常见端口为 465（隐式 TLS）或 587（STARTTLS）。",
-        "default": 465
+        "description": "单封正文最大读取长度",
+        "hint": "超出部分截断，避免长邮件撑爆上下文。",
+        "default": 4000
       },
-      "timeout_seconds": {
-        "type": "float",
-        "description": "SMTP 超时时间（秒）",
-        "hint": "用于限制连接、认证和发送阶段的最长等待时间，避免网络异常导致长时间卡住。",
-        "default": 30
-      },
-      "use_tls": {
-        "type": "bool",
-        "description": "启用隐式 TLS",
-        "hint": "适用于直接使用 TLS 建立连接的 SMTP 服务，通常搭配 465 端口。不要与 STARTTLS 同时开启。",
-        "default": true
-      },
-      "use_starttls": {
-        "type": "bool",
-        "description": "启用 STARTTLS",
-        "hint": "适用于先明文连接再升级为 TLS 的 SMTP 服务，通常搭配 587 端口。不要与隐式 TLS 同时开启。",
-        "default": false
-      },
-      "username": {
-        "type": "string",
-        "description": "SMTP 用户名",
-        "hint": "通常为邮箱地址，也可能是服务商要求的独立账号名。",
-        "default": ""
-      },
-      "password": {
-        "type": "string",
-        "description": "SMTP 密码或授权码",
-        "hint": "优先使用邮箱服务商提供的授权码，而不是主账号密码。",
-        "default": ""
-      },
-      "from_name": {
-        "type": "string",
-        "description": "发件人显示名称",
-        "hint": "显示在收件人邮件客户端中的发件人名称。",
-        "default": "AstrBot Mailer"
-      },
-      "from_email": {
-        "type": "string",
-        "description": "发件人邮箱地址",
-        "hint": "将写入邮件 From 头，并作为实际发信地址使用。",
-        "default": ""
-      },
-      "default_reply_to": {
-        "type": "string",
-        "description": "默认回复地址",
-        "hint": "可选。设置后，收件人点击“回复”时会优先回复到该地址。",
-        "default": ""
-      },
-      "subject_prefix": {
-        "type": "string",
-        "description": "主题前缀",
-        "hint": "可选。会自动添加到所有邮件主题前，例如【AstrBot】。",
-        "default": ""
+      "ignore_sender_patterns": {
+        "type": "list",
+        "description": "忽略的发件人关键字",
+        "hint": "发件人地址包含这些关键字时不自动回复（仍会通知），用于挡 noreply、DMARC 报告这类自动信。",
+        "default": ["no-reply", "noreply", "mailer-daemon", "postmaster", "dmarcreport"]
       }
     }
   },
   "tool": {
     "type": "object",
     "description": "LLM 工具控制",
-    "hint": "控制是否向模型暴露发信工具，以及是否允许模型直接触发发送。",
     "items": {
       "enable_llm_tool": {
         "type": "bool",
-        "description": "启用 send_email 工具",
-        "hint": "关闭后，LLM 将无法调用邮件发送工具，但管理员测试命令仍可保留。",
+        "description": "启用邮件工具",
+        "hint": "关闭后 LLM 无法调用 send_email / list_emails / read_email，管理员命令仍可用。",
         "default": true
       },
       "require_tool_confirmation": {
         "type": "bool",
         "description": "要求人工确认后再发送",
-        "hint": "【开发中】开启后，LLM 直接调用工具会被拒绝，待后续开发接入人工审核或确认流程。",
+        "hint": "【开发中】开启后 LLM 直接调用发信工具会被拒绝。",
         "default": false
       }
     }
@@ -99,49 +142,46 @@
       "allowed_sender_ids": {
         "type": "list",
         "description": "允许调用的用户 ID 列表",
-        "hint": "为空表示不限制。应填写类似 1871234567 这样的平台用户 ID。建议在生产环境中仅放行管理员或可信用户。",
+        "hint": "为空表示不限制。建议只放行管理员或可信用户。",
         "default": []
       },
       "allowed_domains": {
         "type": "list",
         "description": "收件人域名白名单",
-        "hint": "为空表示不限制。设置后，仅允许向这些域名发送邮件。",
+        "hint": "为空表示不限制。",
         "default": []
       },
       "blocked_domains": {
         "type": "list",
         "description": "收件人域名黑名单",
-        "hint": "优先级高于白名单，命中后会直接拒绝发送。",
+        "hint": "优先级高于白名单。",
         "default": []
       },
       "allowed_attachment_roots": {
         "type": "list",
         "description": "允许读取的附件目录",
-        "hint": "填写绝对路径列表。为空时仅允许 plugin_data/astrbot_plugin_mailer/attachments 目录。",
+        "hint": "绝对路径列表。为空时只允许 plugin_data/astrbot_plugin_mailer/attachments。",
         "default": []
       },
       "allow_unsafe_all_attachment_paths": {
         "type": "bool",
         "description": "允许任意附件路径",
-        "hint": "高风险选项，默认关闭。开启后将允许读取任意本地文件路径，LLM 可能借此访问并外发服务器上的敏感文件，请仅在完全可信的受控环境中使用。",
+        "hint": "高风险，默认关闭。",
         "default": false
       },
       "max_attachment_size_mb": {
         "type": "int",
         "description": "单文件大小上限（MB）",
-        "hint": "单个附件或内嵌图片超过该大小时将被拒绝。",
         "default": 10
       },
       "max_total_attachment_size_mb": {
         "type": "int",
-        "description": "总文件大小上限（MB）",
-        "hint": "所有附件和内嵌图片的总大小超过该值时将被拒绝。",
+        "description": "总大小上限（MB）",
         "default": 25
       },
       "max_html_length": {
         "type": "int",
         "description": "HTML 正文长度上限",
-        "hint": "超过该长度的 html_body 将被拒绝，用于避免异常超长内容。",
         "default": 200000
       }
     }
